@@ -28,6 +28,12 @@ class TestWaypointPublisher(Node):
         # Subscribe to clicked point in simulator
         self.clicked_sub = self.create_subscription(PointStamped, 'clicked_point', self.click_listener, 10)
 
+        # Update timer
+        self.timer = self.create_timer(0.5, self.timer_callback)
+
+        self.get_logger().info(f'TestWaypointPublisher successfully initialized')
+
+
     def add_waypoint(self, point: Point):
         self.waypoints.append(point)
 
@@ -47,6 +53,9 @@ class TestWaypointPublisher(Node):
         self.add_waypoint(pt)
         self.get_logger().info(f'Adding waypoint ({pt.x}, {pt.y}, {pt.z})')
 
+        # self.publish_waypoints()
+
+    def timer_callback(self):
         self.publish_waypoints()
 
     def publish_waypoints(self):
