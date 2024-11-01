@@ -15,13 +15,13 @@ setup(
     zip_safe=True,
     maintainer='Peter Lilley',
     maintainer_email='peterlil@buffalo.edu',
-    description='Pure pursuit algorithm implementatino for F1Tenth racecar',
+    description='Pure pursuit algorithm implementation for F1Tenth racecar',
     license='Apache-2.0',
     tests_require=['pytest'],
     entry_points={
         'console_scripts': [
             'pure_pursuit = f1tenth_pure_pursuit.pure_pursuit:main',
-            'test_waypoints = f1tenth_pure_pursuit.test_waypoints:main'
+            'test_waypoint_publisher = f1tenth_pure_pursuit.test_waypoint_publisher:main'
         ],
     },
 )

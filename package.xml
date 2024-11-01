@@ -3,10 +3,11 @@
 <package format="3">
   <name>f1tenth_pure_pursuit</name>
   <version>0.0.0</version>
-  <description>Pure pursuit algorithm implementatino for F1Tenth racecar</description>
+  <description>Pure pursuit algorithm implementation for F1Tenth racecar</description>
   <maintainer email="peterlil@buffalo.edu">Peter Lilley</maintainer>
   <license>Apache-2.0</license>
 
+  <exec_depend>geometry_msgs</exec_depend>
   <test_depend>ament_copyright</test_depend>
   <test_depend>ament_flake8</test_depend>
   <test_depend>ament_pep257</test_depend>
