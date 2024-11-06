@@ -20,7 +20,7 @@ setup(
     tests_require=['pytest'],
     entry_points={
         'console_scripts': [
-            'pure_pursuit = f1tenth_pure_pursuit.pure_pursuit:main',
+            'pure_pursuit = f1tenth_pure_pursuit.pure_pursuit_runner:main',
             'test_waypoint_publisher = f1tenth_pure_pursuit.test_waypoint_publisher:main'
         ],
     },
