@@ -1,6 +1,8 @@
 import rclpy
 from rclpy.node import Node
 
+from f1tenth_pure_pursuit.trapezoid_profile import TrapezoidProfile
+
 from nav_msgs.msg import Odometry
 from geometry_msgs.msg import Point
 from geometry_msgs.msg import PoseArray
@@ -15,20 +17,26 @@ import numpy as np
 
 ROBOT_WHEELBASE_LENGTH = 0.3
 
-MAX_TURN_ANGLE = np.pi / 3 # TODO: Adjust based on speed
+MAX_TURN_ANGLE_RAD = np.pi / 3 # TODO: Adjust based on speed
+
+MAX_VELOCITY_MPS = 1.0
+MAX_ACCELERATION_MPS2 = 1.0
 
 class PurePursuitRunner(Node):
     def __init__(self):
         super().__init__('pure_pursuit_runner')
 
-        self.waypoints = []
+        self.waypoints = PoseArray()
         self.odometry = Odometry()
-        self.target_pose = Pose()
+        self.lookahead_pose = Pose()
+
+        self.forward_profile = TrapezoidProfile(MAX_VELOCITY_MPS, MAX_ACCELERATION_MPS2)
+        # self.steering_profile = 
 
         self.waypoints_sub = self.create_subscription(PoseArray, 'waypoints', self.waypoints_update_listener, 10)
         self.odometry_sub = self.create_subscription(Odometry, 'ego_racecar/odom', self.odometry_update_listener, 10)
 
-        self.target_pose_pub = self.create_publisher(PoseStamped, 'target_pose', 10)
+        self.lookahead_pose_pub = self.create_publisher(PoseStamped, 'lookahead_pose', 10)
         self.drive_pub = self.create_publisher(AckermannDriveStamped, 'drive', 10)
 
         self.timer = self.create_timer(0.2, self.timer_callback)
@@ -38,34 +46,41 @@ class PurePursuitRunner(Node):
     def waypoints_update_listener(self, waypoints: PoseArray):
         self.waypoints = waypoints
 
-        closest_waypoint_index = self.find_closest_waypoint()
-
-        max_lookahead_distance = 1.0 # TODO: Adjust based on speed
-
-        target_waypoint_index = self.find_farthest_waypoint_in_radius(closest_waypoint_index, max_lookahead_distance)
-
-        self.target_pose = self.waypoints.poses[target_waypoint_index]
-
     def odometry_update_listener(self, odometry: Odometry):
         self.odometry = odometry
 
     def timer_callback(self):
-        ts = self.get_clock().now().to_msg()
+        ts = self.get_clock().now()
+
+        num_waypoints = len(self.waypoints.poses)
+        if num_waypoints != 0:
+            closest_waypoint_index = self.find_closest_waypoint()
+
+            max_lookahead_distance = 1.0 # TODO: Adjust based on speed
+
+            target_waypoint_index = self.find_farthest_waypoint_in_radius(closest_waypoint_index, max_lookahead_distance)
+
+            if target_waypoint_index == num_waypoints - 1:
+                # Stop the robot
+                self.forward_profile.configure_velocity(self.get_clock().now(), 0.0)
+            else:
+                self.forward_profile.configure_velocity(self.get_clock().now(), MAX_VELOCITY_MPS)
+
+            self.lookahead_pose = self.waypoints.poses[target_waypoint_index]
 
         ps = PoseStamped()
-
-        ps.pose = self.target_pose
-        ps.header.stamp = ts
+        ps.pose = self.lookahead_pose
+        ps.header.stamp = ts.to_msg()
         ps.header.frame_id = 'map'
-        self.target_pose_pub.publish(ps)
+        self.lookahead_pose_pub.publish(ps)
 
         steering_angle = self.calculate_steering_angle()
         
         ds = AckermannDriveStamped()
-        ds.header.stamp = ts
+        ds.header.stamp = ts.to_msg()
         d = AckermannDrive()
         d.steering_angle = steering_angle
-        d.speed = 0.5 # TODO: Adjust based on curvature
+        d.speed = self.forward_profile.sample(ts).velocity
         ds.drive = d
 
         self.drive_pub.publish(ds)
@@ -124,7 +139,7 @@ class PurePursuitRunner(Node):
         robot_yaw_angle = np.arctan2(siny_cosp, cosy_cosp);
 
         robot_position = robot_pose.position
-        goal_position = self.target_pose.position
+        goal_position = self.lookahead_pose.position
 
         dx = goal_position.x - robot_position.x
         dy = goal_position.y - robot_position.y
@@ -146,8 +161,8 @@ class PurePursuitRunner(Node):
 
         angle = np.arctan(ROBOT_WHEELBASE_LENGTH / turn_radius)
 
-        if angle > MAX_TURN_ANGLE:
-            angle = MAX_TURN_ANGLE
+        if angle > MAX_TURN_ANGLE_RAD:
+            angle = MAX_TURN_ANGLE_RAD
 
         if arc_point_distance > 0.0:
             angle = -angle

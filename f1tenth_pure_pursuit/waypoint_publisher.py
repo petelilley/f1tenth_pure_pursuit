@@ -13,9 +13,9 @@ import numpy as np
 
 RESOLUTION = 100
 
-class TestWaypointPublisher(Node):
+class WaypointPublisher(Node):
     def __init__(self):
-        super().__init__('test_waypoint_publisher')
+        super().__init__('waypoint_publisher')
 
         # Initialize waypoints
         self.waypoints = []
@@ -31,7 +31,7 @@ class TestWaypointPublisher(Node):
         # Update timer
         self.timer = self.create_timer(0.5, self.timer_callback)
 
-        self.get_logger().info(f'TestWaypointPublisher successfully initialized')
+        self.get_logger().info(f'WaypointPublisher successfully initialized')
 
 
     def add_waypoint(self, point: Point):
@@ -110,11 +110,11 @@ class TestWaypointPublisher(Node):
 def main(args=None):
     rclpy.init(args=args)
 
-    test_waypoint_publisher = TestWaypointPublisher()
+    waypoint_publisher = WaypointPublisher()
 
-    rclpy.spin(test_waypoint_publisher)
+    rclpy.spin(waypoint_publisher)
 
-    test_waypoint_publisher.destroy_node()
+    waypoint_publisher.destroy_node()
     rclpy.shutdown()
 
 if __name__ == '__main__':
