@@ -1,7 +1,7 @@
 import rclpy
 from rclpy.node import Node
 
-from f1tenth_pure_pursuit.trapezoid_profile import TrapezoidProfile
+from f1tenth_pure_pursuit.acceleration_profile import AccelerationProfile
 
 from nav_msgs.msg import Odometry
 from geometry_msgs.msg import Point
@@ -30,8 +30,8 @@ class PurePursuitRunner(Node):
         self.odometry = Odometry()
         self.lookahead_pose = Pose()
 
-        self.forward_profile = TrapezoidProfile(MAX_VELOCITY_MPS, MAX_ACCELERATION_MPS2)
-        # self.steering_profile = 
+        self.forward_profile = AccelerationProfile(MAX_ACCELERATION_MPS2)
+        # self.steering_profile =
 
         self.waypoints_sub = self.create_subscription(PoseArray, 'waypoints', self.waypoints_update_listener, 10)
         self.odometry_sub = self.create_subscription(Odometry, 'ego_racecar/odom', self.odometry_update_listener, 10)
@@ -61,10 +61,9 @@ class PurePursuitRunner(Node):
             target_waypoint_index = self.find_farthest_waypoint_in_radius(closest_waypoint_index, max_lookahead_distance)
 
             if target_waypoint_index == num_waypoints - 1:
-                # Stop the robot
-                self.forward_profile.configure_velocity(self.get_clock().now(), 0.0)
+                self.forward_profile.configure(self.get_clock().now(), 0.0)
             else:
-                self.forward_profile.configure_velocity(self.get_clock().now(), MAX_VELOCITY_MPS)
+                self.forward_profile.configure(self.get_clock().now(), MAX_VELOCITY_MPS)
 
             self.lookahead_pose = self.waypoints.poses[target_waypoint_index]
 
@@ -153,7 +152,7 @@ class PurePursuitRunner(Node):
         arc_point_angle = (np.pi / 2.0) - (robot_yaw_angle - goal_angle)
 
         arc_point_distance = np.cos(arc_point_angle) * goal_distance
-        if abs(arc_point_angle) < 0.001:
+        if abs(arc_point_distance) < 0.001:
             return 0.0
 
         # r = L^2 / 2|y|
