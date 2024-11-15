@@ -21,7 +21,8 @@ setup(
     entry_points={
         'console_scripts': [
             'pure_pursuit = f1tenth_pure_pursuit.pure_pursuit_runner:main',
-            'waypoint_publisher = f1tenth_pure_pursuit.waypoint_publisher:main'
+            'waypoint_publisher = f1tenth_pure_pursuit.waypoint_publisher:main',
+            'racetrack_csv_waypoint_publisher = f1tenth_pure_pursuit.racetrack_csv_waypoint_publisher:main'
         ],
     },
 )

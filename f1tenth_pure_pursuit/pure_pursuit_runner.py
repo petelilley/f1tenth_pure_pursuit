@@ -17,10 +17,24 @@ import numpy as np
 
 ROBOT_WHEELBASE_LENGTH = 0.3
 
-MAX_TURN_ANGLE_RAD = np.pi / 3 # TODO: Adjust based on speed
-
-MAX_VELOCITY_MPS = 1.0
+MAX_TURN_ANGLE_RAD = np.pi / 3
+MAX_VELOCITY_MPS = 5.0
 MAX_ACCELERATION_MPS2 = 1.0
+MIN_LOOKAHEAD = 1.0
+
+TURN_RADIUS_TO_VELOCITY_CONVERSION = 1.0
+VELOCITY_TO_LOOKAHEAD_CONVERSION = 0.5
+
+def get_target_velocity(turn_radius):
+    velocity = abs(turn_radius) * TURN_RADIUS_TO_VELOCITY_CONVERSION
+    return min(velocity, MAX_VELOCITY_MPS)
+
+def get_max_turn_angle(target_velocity):
+    return MAX_TURN_ANGLE_RAD # TODO: Reduce at high speeds
+
+def get_lookahead_distance(target_velocity):
+    distance = target_velocity * VELOCITY_TO_LOOKAHEAD_CONVERSION
+    return max(distance, MIN_LOOKAHEAD)
 
 class PurePursuitRunner(Node):
     def __init__(self):
@@ -39,7 +53,7 @@ class PurePursuitRunner(Node):
         self.lookahead_pose_pub = self.create_publisher(PoseStamped, 'lookahead_pose', 10)
         self.drive_pub = self.create_publisher(AckermannDriveStamped, 'drive', 10)
 
-        self.timer = self.create_timer(0.2, self.timer_callback)
+        self.timer = self.create_timer(0.02, self.timer_callback)
 
         self.get_logger().info(f'PurePursuitRunner successfully initialized')
 
@@ -51,19 +65,22 @@ class PurePursuitRunner(Node):
 
     def timer_callback(self):
         ts = self.get_clock().now()
+        
+        turn_radius = self.calculate_turn_radius()
 
         num_waypoints = len(self.waypoints.poses)
         if num_waypoints != 0:
             closest_waypoint_index = self.find_closest_waypoint()
 
-            max_lookahead_distance = 1.0 # TODO: Adjust based on speed
-
-            target_waypoint_index = self.find_farthest_waypoint_in_radius(closest_waypoint_index, max_lookahead_distance)
-
-            if target_waypoint_index == num_waypoints - 1:
+            if closest_waypoint_index == num_waypoints - 1:
                 self.forward_profile.configure(self.get_clock().now(), 0.0)
             else:
-                self.forward_profile.configure(self.get_clock().now(), MAX_VELOCITY_MPS)
+                velocity = get_target_velocity(turn_radius)
+                self.forward_profile.configure(self.get_clock().now(), velocity)
+
+            lookahead_distance = get_lookahead_distance(self.forward_profile.get_final_velocity())
+
+            target_waypoint_index = self.find_farthest_waypoint_in_radius(closest_waypoint_index, lookahead_distance)
 
             self.lookahead_pose = self.waypoints.poses[target_waypoint_index]
 
@@ -73,7 +90,7 @@ class PurePursuitRunner(Node):
         ps.header.frame_id = 'map'
         self.lookahead_pose_pub.publish(ps)
 
-        steering_angle = self.calculate_steering_angle()
+        steering_angle = self.calculate_steering_angle(turn_radius)
         
         ds = AckermannDriveStamped()
         ds.header.stamp = ts.to_msg()
@@ -128,7 +145,7 @@ class PurePursuitRunner(Node):
 
         return farthest_index
 
-    def calculate_steering_angle(self) -> float:
+    def calculate_turn_radius(self) -> float:
         robot_pose = self.odometry.pose.pose
 
         q = robot_pose.orientation
@@ -158,12 +175,21 @@ class PurePursuitRunner(Node):
         # r = L^2 / 2|y|
         turn_radius = (goal_distance**2) / (2 * abs(arc_point_distance))
 
-        angle = np.arctan(ROBOT_WHEELBASE_LENGTH / turn_radius)
-
-        if angle > MAX_TURN_ANGLE_RAD:
-            angle = MAX_TURN_ANGLE_RAD
-
         if arc_point_distance > 0.0:
+            return -turn_radius
+
+        return turn_radius
+
+    def calculate_steering_angle(self, turn_radius) -> float:
+        if turn_radius == 0.0:
+            return 0.0
+
+        angle = np.arctan(ROBOT_WHEELBASE_LENGTH / abs(turn_radius))
+
+        max_angle = get_max_turn_angle(self.forward_profile.get_final_velocity())
+        angle = min(angle, max_angle)
+
+        if turn_radius < 0.0:
             angle = -angle
 
         return angle

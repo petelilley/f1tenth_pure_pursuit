@@ -20,6 +20,9 @@ class AccelerationProfile:
         self.velocity_init = 0.0
         self.velocity_final = 0.0
 
+    def get_final_velocity(self) -> float:
+        return self.velocity_final
+
     # Configure the profile to accelerate/decelerate to a target velocity
     def configure(self, start_ts, velocity: float):
         if self.is_configured:
